@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from datetime import timedelta
 
 import pandas as pd
 import numpy as np
@@ -64,6 +65,7 @@ def run_backtest(
     upper_pct:      float = 0.05,
     lower_pct:      float = 0.03,
     max_days:       int   = 20,
+    cooldown_days:  int   = 0,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Simulate trading on OOF predictions.
@@ -80,6 +82,10 @@ def run_backtest(
     lower_pct      : stop-loss fraction
     max_days       : maximum holding period (calendar days × 1.5 conversion used
                      in Portfolio.enter)
+    cooldown_days  : after a position in symbol X exits on date D, block new
+                     entries in X until D + cooldown_days have elapsed.
+                     Cooldown is per-symbol — blocking JPM does not affect AAPL.
+                     0 = no cooldown (default, matches Phase 4 behaviour).
 
     Returns
     -------
@@ -112,6 +118,10 @@ def run_backtest(
 
     # pending_entries[date] = list of (symbol, proba, fold) to execute NEXT day
     pending_entries: dict[pd.Timestamp, list[tuple]] = defaultdict(list)
+
+    # cooldown tracking: last date a position in each symbol was closed
+    # (keyed by symbol; only populated when cooldown_days > 0)
+    last_exit_date: dict[str, pd.Timestamp] = {}
 
     # Queue signals from the day BEFORE the first prediction date
     # so the first day's signals get executed on the second day
@@ -160,6 +170,15 @@ def run_backtest(
             for sym, proba, fold in pending_entries.get(prev_date, []):
                 if not portfolio.can_enter(sym):
                     continue
+                # Cooldown gate: refuse re-entry if last exit was too recent
+                if cooldown_days > 0 and sym in last_exit_date:
+                    earliest_reentry = last_exit_date[sym] + timedelta(days=cooldown_days)
+                    if date < earliest_reentry:
+                        log.debug(
+                            "COOLDOWN %s: last exit %s, earliest reentry %s, skipping %s",
+                            sym, last_exit_date[sym].date(), earliest_reentry.date(), date.date(),
+                        )
+                        continue
                 entry_price = open_prices.get(sym)
                 if entry_price is None or entry_price <= 0:
                     log.debug("No open price for %s on %s, skipping entry", sym, date.date())
@@ -200,16 +219,20 @@ def run_backtest(
                 # down to the stop, a stop-market order would typically fill
                 # at the stop level before we can exit at the target.
                 portfolio.exit(sym, date, pos.stop, ac, cost_model, "stop")
+                last_exit_date[sym] = date
 
             elif hit_target:
                 portfolio.exit(sym, date, pos.target, ac, cost_model, "target")
+                last_exit_date[sym] = date
 
             elif hit_stop:
                 portfolio.exit(sym, date, pos.stop, ac, cost_model, "stop")
+                last_exit_date[sym] = date
 
             elif hit_expiry:
                 exit_price = close if close else pos.entry_price
                 portfolio.exit(sym, date, exit_price, ac, cost_model, "expiry")
+                last_exit_date[sym] = date
 
     # ── End of simulation: force-close any remaining positions ────────────────
     # WHY force-close?

@@ -24,6 +24,7 @@ from src.backtest.costs     import TransactionCostModel, ZeroCostModel
 from src.backtest.portfolio import Portfolio
 from src.backtest.engine    import run_backtest
 from src.backtest.metrics   import compute_metrics
+from src.backtest.benchmark import equal_weight_buy_hold
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -427,3 +428,132 @@ def test_zero_cost_model_identity():
         assert cm.apply_entry_cost(100.0, ac) == 100.0
         assert cm.apply_exit_cost(100.0, ac) == 100.0
         assert cm.total_round_trip_pct(ac) == 0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Test 10 & 11: Cooldown logic
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_cooldown_setup(cooldown_days: int):
+    """
+    Build a minimal scenario where:
+      - SPY has a signal on day 0 that enters on day 1
+      - SPY exits via target on day 2 (high >= 1.05×entry)
+      - SPY has another signal on day 3 that would enter on day 4
+    Returns (trades_df, prices_df, pred_df) — caller picks cooldown_days.
+
+    With cooldown_days=0 the second entry fires (day 4 >= day 2 + 0).
+    With cooldown_days=5 the second entry is blocked (day 4 < day 2 + 5).
+    """
+    dates = pd.date_range("2022-01-01", periods=12, freq="D", tz="UTC")
+    n = len(dates)
+
+    opens  = [100.0] * n
+    closes = [100.0] * n
+    highs  = [101.0] * n
+    lows   = [ 99.0] * n
+
+    # Day index 2: trigger target exit (high >= 100×1.05 = 105)
+    highs[2] = 110.0
+
+    prices_df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1e6},
+        index=dates,
+    )
+
+    # Signals on day 0 (entry day 1) and day 3 (entry day 4)
+    pred = pd.DataFrame(
+        {"y_true": 1, "proba_raw": 0.80, "proba_cal": 0.80, "symbol": "SPY", "fold": 0},
+        index=[dates[0], dates[1], dates[2], dates[3], dates[4]],
+    )
+
+    portfolio = Portfolio(initial_cash=10_000)
+    trades, _ = run_backtest(
+        predictions_df=pred,
+        prices_dict={"SPY": prices_df},
+        cost_model=ZeroCostModel(),
+        portfolio=portfolio,
+        threshold=0.70,
+        upper_pct=0.05,
+        lower_pct=0.50,   # wide stop so only target fires
+        max_days=3,
+        cooldown_days=cooldown_days,
+    )
+    return trades
+
+
+def test_cooldown_blocks_reentry():
+    """
+    After SPY exits on day 2, a cooldown of 5 days must block re-entry on day 4.
+    We expect exactly 1 closed trade (the first one).
+    """
+    trades = _make_cooldown_setup(cooldown_days=5)
+    assert not trades.empty, "First trade should exist"
+    # If cooldown worked, only the first trade (exited on day 2) exists.
+    # The second signal (day 3 → entry day 4) should have been blocked.
+    spv_trades = trades[trades["symbol"] == "SPY"]
+    assert len(spv_trades) == 1, (
+        f"Expected 1 SPY trade under cooldown_days=5, got {len(spv_trades)}. "
+        "Cooldown did not block re-entry."
+    )
+
+
+def test_cooldown_expires():
+    """
+    With cooldown_days=0, re-entry must be allowed immediately.
+    We expect 2 closed trades for SPY (first and second signals both fire).
+    """
+    trades = _make_cooldown_setup(cooldown_days=0)
+    spv_trades = trades[trades["symbol"] == "SPY"]
+    assert len(spv_trades) >= 2, (
+        f"Expected ≥2 SPY trades with cooldown_days=0, got {len(spv_trades)}. "
+        "Re-entry was incorrectly blocked."
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Test 12: Buy-and-hold benchmark
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_buy_hold_no_trades_after_initial():
+    """
+    equal_weight_buy_hold must produce exactly len(symbols) trades,
+    all with entry_date == start_date.
+
+    WHY: the benchmark buys once on start_date and never sells intra-period.
+    Any additional trade rows would indicate incorrect rebalancing logic.
+    """
+    symbols = ["SPY", "AAPL", "MSFT"]
+    prices_dict = {sym: _make_prices(sym, n=40) for sym in symbols}
+
+    start = prices_dict["SPY"].index[0]
+    end   = prices_dict["SPY"].index[-1]
+
+    trades, equity, metrics = equal_weight_buy_hold(
+        prices_dict=prices_dict,
+        symbols=symbols,
+        start_date=start,
+        end_date=end,
+        initial_cash=10_000.0,
+        cost_model=ZeroCostModel(),
+    )
+
+    # Exactly one trade row per symbol
+    assert len(trades) == len(symbols), (
+        f"Expected {len(symbols)} trades (one per symbol), got {len(trades)}"
+    )
+
+    # All entry dates must equal start_date
+    entry_dates = pd.to_datetime(trades["entry_date"]).dt.normalize()
+    start_norm  = pd.Timestamp(start).normalize()
+    assert (entry_dates == start_norm).all(), (
+        f"Some entry_dates differ from start_date={start_norm.date()}: {entry_dates.tolist()}"
+    )
+
+    # Equity curve must be non-empty
+    assert not equity.empty, "Equity curve is empty"
+
+    # Metrics must be present
+    assert "sharpe" in metrics
+    assert "cagr_pct" in metrics
+    assert "max_drawdown_pct" in metrics
