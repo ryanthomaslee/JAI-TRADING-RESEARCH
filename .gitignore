@@ -1,0 +1,40 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyd
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments (uv manages .venv)
+.venv/
+
+# Data files — DO NOT commit raw/processed market data.
+# WHY? Data is large, binary, and changes daily. Git is for code, not data.
+data/raw/
+data/processed/
+data/features/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# Test/lint artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets — never commit API keys or credentials
+.env
+.env.*
+secrets.yaml

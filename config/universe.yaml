@@ -1,0 +1,48 @@
+# Trading universe for market-intel
+#
+# WHY YAML for this (not Python)?
+#   This file is meant to be edited by non-developers or read by other tools
+#   (dashboards, notebooks) without importing Python.  YAML is the standard
+#   config format for exactly this use case.
+#
+# WHY these symbols specifically?
+#   - SPY / QQQ: market regime context — knowing the macro trend dramatically
+#     improves individual stock signal quality
+#   - AAPL / MSFT / NVDA / JPM: large-cap liquid names with long history,
+#     minimal survivorship bias risk
+#   - BTC / ETH / SOL / BNB: the four most liquid crypto assets by volume,
+#     giving broad crypto exposure without micro-cap noise
+
+stocks:
+  - symbol: "SPY"
+    name: "SPDR S&P 500 ETF"
+    sector: "ETF"
+  - symbol: "QQQ"
+    name: "Invesco QQQ (Nasdaq 100)"
+    sector: "ETF"
+  - symbol: "AAPL"
+    name: "Apple Inc."
+    sector: "Technology"
+  - symbol: "MSFT"
+    name: "Microsoft Corp."
+    sector: "Technology"
+  - symbol: "NVDA"
+    name: "NVIDIA Corp."
+    sector: "Semiconductors"
+  - symbol: "JPM"
+    name: "JPMorgan Chase"
+    sector: "Financials"
+
+crypto:
+  - symbol: "BTC/USDT"
+    ccxt_id: "BTC/USDT"
+    name: "Bitcoin"
+  - symbol: "ETH/USDT"
+    ccxt_id: "ETH/USDT"
+    name: "Ethereum"
+  - symbol: "SOL/USDT"
+    ccxt_id: "SOL/USDT"
+    name: "Solana"
+  - symbol: "BNB/USDT"
+    ccxt_id: "BNB/USDT"
+    name: "BNB"

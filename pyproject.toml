@@ -1,0 +1,26 @@
+[project]
+name = "market-intel"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "ccxt>=4.5.53",
+    "lightgbm>=4.6.0",
+    "pandas>=2.3.3",
+    "pandas-ta>=0.4.71b0",
+    "pyarrow>=24.0.0",
+    "pyyaml>=6.0.3",
+    "requests>=2.34.0",
+    "ta>=0.11.0",
+    "tqdm>=4.67.3",
+    "xgboost>=3.2.0",
+    "yfinance>=1.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "mypy>=2.1.0",
+    "pytest>=9.0.3",
+    "ruff>=0.15.12",
+]
