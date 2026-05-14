@@ -47,3 +47,24 @@ PARQUET_COMPRESSION = "snappy"
 MAX_RETRIES      = 3
 RETRY_BACKOFF_S  = 2   # seconds between retries (doubles each attempt)
 RATE_LIMIT_MS    = 200  # ms between crypto API calls
+
+# ── Dashboard screener thresholds ────────────────────────────────────────────
+# All defaults are tunable here without touching screener code.
+SCREENER_MOVER_PCT         = 5.0   # % move to qualify as a "big mover"
+SCREENER_MOVER_LOOKBACK    = 1     # days for big-mover lookback
+SCREENER_RSI_OVERSOLD      = 30    # RSI below this = oversold
+SCREENER_RSI_OVERBOUGHT    = 70    # RSI above this = overbought
+SCREENER_MIN_VOLUME_RATIO  = 0.8   # min volume/avg for oversold filter
+SCREENER_VOL_BREAKOUT_MULT = 3.0   # volume multiplier for breakout flag
+SCREENER_NEW_LISTING_DAYS  = 90    # history days below this = new listing
+
+# Maximum rows shown in terminal per section (remainder in .md file only)
+REPORT_TERMINAL_MAX_ROWS   = 15
+
+# Production model directory (registry output)
+MODELS_PRODUCTION_DIR = DATA_DIR / "models" / "production"
+MODELS_PRODUCTION_DIR.mkdir(parents=True, exist_ok=True)
+
+# Reports directory
+REPORTS_DIR = DATA_DIR / "reports"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)

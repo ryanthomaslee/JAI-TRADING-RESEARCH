@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -33,6 +34,9 @@ if str(ROOT) not in sys.path:
 from config.settings import HIST_START, HIST_END
 from src.ingestion.stocks import pull_stocks
 from src.ingestion.crypto import pull_crypto
+
+# Recent-only pulls this many days back (enough for SMA(200) warmup + buffer)
+_RECENT_DAYS = 400
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 # Log to stdout so it's readable in a terminal and capturable by CI logs.
@@ -82,7 +86,21 @@ def main() -> None:
     parser.add_argument("--crypto-only",  action="store_true", help="Pull crypto only")
     parser.add_argument("--start",        default=HIST_START,  help=f"Start date (default: {HIST_START})")
     parser.add_argument("--end",          default=HIST_END,    help="End date (default: today)")
+    parser.add_argument(
+        "--recent-only",
+        action="store_true",
+        help=(
+            f"Only fetch last {_RECENT_DAYS} days (faster daily refresh). "
+            "Sufficient for all screener indicators and ML scoring."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.recent_only:
+        recent_start = (datetime.today() - timedelta(days=_RECENT_DAYS)).strftime("%Y-%m-%d")
+        args.start   = recent_start
+        args.refresh = True   # must re-fetch to update cache
+        log.info("--recent-only: fetching from %s (last %d days)", recent_start, _RECENT_DAYS)
 
     stock_symbols, crypto_symbols = load_universe()
 
