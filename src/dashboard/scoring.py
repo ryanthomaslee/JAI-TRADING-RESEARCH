@@ -152,29 +152,32 @@ def compute_score(
     # ── RSI reasoning ─────────────────────────────────────────────────────
     if not np.isnan(rsi):
         if rsi < 30:
-            reasoning.append(f"RSI {rsi:.0f} — oversold territory (+2 pts). "
-                             "Historically bounces ~50% of the time, not a guarantee.")
-        elif rsi > 70:
-            reasoning.append(f"RSI {rsi:.0f} — overbought, momentum may fade (+0 pts).")
+            reasoning.append(f"RSI {rsi:.0f} — oversold, historical bounce zone.")
+        elif rsi < 45:
+            reasoning.append(f"RSI {rsi:.0f} — below midline, pullback territory.")
+        elif rsi <= 55:
+            reasoning.append(f"RSI {rsi:.0f} — neutral, no momentum signal.")
+        elif rsi <= 70:
+            reasoning.append(f"RSI {rsi:.0f} — above midline, momentum present.")
         else:
-            reasoning.append(f"RSI {rsi:.0f} — neutral (+1 pt).")
+            reasoning.append(f"RSI {rsi:.0f} — overbought, momentum extended, watch for reversal.")
 
     # ── MACD reasoning ────────────────────────────────────────────────────
     if macd_pts == 2:
-        reasoning.append("MACD bullish cross: histogram just turned positive (+2 pts).")
+        reasoning.append("MACD bullish cross — histogram turned positive today.")
     elif macd_pts == 1:
-        reasoning.append("MACD above signal line — upward momentum (+1 pt).")
+        reasoning.append("MACD above signal line — upward momentum.")
     else:
-        reasoning.append("MACD below signal line — no upward momentum confirmation (+0 pts).")
+        reasoning.append("MACD below signal line — no upward momentum confirmation.")
 
     # ── Volume reasoning ──────────────────────────────────────────────────
     if not np.isnan(vol_ratio):
         if vol_ratio >= 1.5:
-            reasoning.append(f"Volume {vol_ratio:.1f}× avg — strong participation (+2 pts).")
+            reasoning.append(f"Volume {vol_ratio:.1f}× average — strong participation.")
         elif vol_ratio >= 1.0:
-            reasoning.append(f"Volume {vol_ratio:.1f}× avg — normal participation (+1 pt).")
+            reasoning.append(f"Volume {vol_ratio:.1f}× average — normal participation.")
         else:
-            reasoning.append(f"Volume {vol_ratio:.1f}× avg — below average (+0 pts).")
+            reasoning.append(f"Volume {vol_ratio:.1f}× average — below average.")
 
     # ── ML component ──────────────────────────────────────────────────────
     ml_proba: float | None = None
@@ -192,8 +195,7 @@ def compute_score(
                 ml_pts   = _ml_component(ml_proba)
                 has_ml   = True
                 reasoning.append(
-                    f"ML model: {ml_proba:.0%} probability of +5% target "
-                    f"(calibrated, +{ml_pts}/4 pts)."
+                    f"ML model: {ml_proba:.0%} probability of +5% target (calibrated)."
                 )
             else:
                 reasoning.append("ML model: insufficient feature data, skipped.")

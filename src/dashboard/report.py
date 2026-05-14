@@ -91,7 +91,7 @@ def _section_movers(
         lines_t.append("  ### Top gainers")
         lines_m.append("### Top gainers")
         lines_t.append(header)
-        lines_m.append(f"`{header}`")
+        lines_m.append(header)
         for _, row in top_up.iterrows():
             lines_t.append(_one_liner(row))
             lines_m.append(_one_liner(row))
@@ -111,7 +111,7 @@ def _section_movers(
         lines_t.append("  ### Top losers")
         lines_m.append("### Top losers")
         lines_t.append(header)
-        lines_m.append(f"`{header}`")
+        lines_m.append(header)
         for _, row in top_down.iterrows():
             lines_t.append(_one_liner(row))
             lines_m.append(_one_liner(row))
@@ -148,7 +148,7 @@ def _section_oversold(
     shown  = oversold_df.head(max_rows)
     header = f"  {'Symbol':<12}  {'Price':>9}  {'Change':>7}  {'Volume':>10}  {'RSI'}"
     lines_t.append(header)
-    lines_m.append(f"`{header}`")
+    lines_m.append(header)
     for _, row in shown.iterrows():
         lines_t.append(_one_liner(row))
         lines_m.append(_one_liner(row))
@@ -182,7 +182,7 @@ def _section_breakouts(
     shown  = breakouts_df.head(max_rows)
     header = f"  {'Symbol':<12}  {'Price':>9}  {'Change':>7}  {'Volume':>10}  {'RSI'}"
     lines_t.append(header)
-    lines_m.append(f"`{header}`")
+    lines_m.append(header)
     for _, row in shown.iterrows():
         lines_t.append(_one_liner(row))
         lines_m.append(_one_liner(row))
@@ -219,17 +219,53 @@ def _section_new_listings(new_df: pd.DataFrame) -> tuple[str, str]:
     return "\n".join(lines_t), "\n".join(lines_m)
 
 
-def _section_ml_signals(scores: list[dict], threshold: float = 7.0) -> tuple[str, str]:
+def _section_overbought(
+    overbought_df: pd.DataFrame,
+    max_rows:      int = 10,
+) -> tuple[str, str]:
+    lines_t = [
+        "## 🟡 OVERBOUGHT  (RSI > 70)\n",
+        "  Potential exit signals if holding; avoid fresh longs.\n",
+    ]
+    lines_m = [
+        "## 🟡 Overbought (RSI > 70)\n",
+        "> Potential exit signals if holding; avoid fresh longs.\n",
+    ]
+
+    if overbought_df.empty:
+        lines_t.append("  No overbought symbols today.")
+        lines_m.append("No overbought symbols today.")
+        return "\n".join(lines_t), "\n".join(lines_m)
+
+    total  = len(overbought_df)
+    shown  = overbought_df.head(max_rows)
+    header = f"  {'Symbol':<12}  {'Price':>9}  {'Change':>7}  {'Volume':>10}  {'RSI'}"
+    lines_t.append(header)
+    lines_m.append(header)
+    for _, row in shown.iterrows():
+        lines_t.append(_one_liner(row))
+        lines_m.append(_one_liner(row))
+    if total > max_rows:
+        extra = total - max_rows
+        note  = f"  … +{extra} more overbought symbols in the markdown report."
+        lines_t.append(note)
+        lines_m.append(f"  … +{extra} more symbols not shown.")
+
+    return "\n".join(lines_t), "\n".join(lines_m)
+
+
+def _section_high_conviction(scores: list[dict], threshold: float = 7.0) -> tuple[str, str]:
     """
-    ML signals section: only symbols with composite score >= threshold.
+    High-conviction setups: symbols with composite score >= threshold.
+    Renamed from ML SIGNALS since most symbols use technical-only scoring.
     """
-    lines_t = [f"## 🎯 ML SIGNALS  (composite score ≥ {threshold:.0f}/10)\n"]
-    lines_m = [f"## 🎯 ML Signals (score ≥ {threshold:.0f}/10)\n"]
+    lines_t = [f"## 🎯 HIGH-CONVICTION SETUPS  (score ≥ {threshold:.0f}/10)\n"]
+    lines_m = [f"## 🎯 High-Conviction Setups (score ≥ {threshold:.0f}/10)\n"]
 
     high_conviction = [s for s in scores if s.get("score", 0) >= threshold]
 
     if not high_conviction:
-        msg = "  No ML signals above threshold today."
+        msg = "  No high-conviction setups above threshold today."
         lines_t.append(msg)
         lines_m.append(msg.strip())
         return "\n".join(lines_t), "\n".join(lines_m)
@@ -263,6 +299,10 @@ def _section_ml_signals(scores: list[dict], threshold: float = 7.0) -> tuple[str
     return "\n".join(lines_t), "\n".join(lines_m)
 
 
+# Keep old name as alias so existing tests don't break
+_section_ml_signals = _section_high_conviction
+
+
 def _section_summary(
     n_universe:   int,
     n_up:         int,
@@ -281,7 +321,7 @@ def _section_summary(
         f"  RSI: {n_oversold} oversold (<30), {n_overbought} overbought (>70)",
         f"  Volume breakouts: {n_breakouts}",
         f"  New/thin listings: {n_new}",
-        f"  High-conviction ML signals (≥7): {n_ml_signals}",
+        f"  High-conviction setups (≥7): {n_ml_signals}",
     ]
     return "\n".join(lines), "\n".join(lines)
 
@@ -313,13 +353,14 @@ def generate_report(
     title_t  = f"\n{'═'*64}\n  MARKET INTELLIGENCE — {date_str}  ({n_uni} symbols)\n{'═'*64}\n"
     title_m  = f"# Market Intelligence — {date_str}\n\n> Universe: {n_uni} symbols\n"
 
-    s_movers_t,   s_movers_m   = _section_movers(movers_up, movers_down)
-    s_oversold_t, s_oversold_m = _section_oversold(oversold_df)
-    s_breaks_t,   s_breaks_m   = _section_breakouts(breakouts_df)
-    s_new_t,      s_new_m      = _section_new_listings(new_df)
-    s_ml_t,       s_ml_m       = _section_ml_signals(scores, threshold=ml_threshold)
+    s_movers_t,    s_movers_m    = _section_movers(movers_up, movers_down)
+    s_oversold_t,  s_oversold_m  = _section_oversold(oversold_df)
+    s_overbought_t, s_overbought_m = _section_overbought(overbought_df)
+    s_breaks_t,    s_breaks_m    = _section_breakouts(breakouts_df)
+    s_new_t,       s_new_m       = _section_new_listings(new_df)
+    s_hc_t,        s_hc_m        = _section_high_conviction(scores, threshold=ml_threshold)
 
-    n_ml_sig = sum(1 for s in scores if s.get("score", 0) >= ml_threshold)
+    n_hc_sig = sum(1 for s in scores if s.get("score", 0) >= ml_threshold)
     s_sum_t, s_sum_m = _section_summary(
         n_universe   = n_uni,
         n_up         = len(movers_up),
@@ -328,15 +369,15 @@ def generate_report(
         n_overbought = len(overbought_df),
         n_breakouts  = len(breakouts_df),
         n_new        = len(new_df),
-        n_ml_signals = n_ml_sig,
+        n_ml_signals = n_hc_sig,
         report_date  = date_str,
     )
 
     sep = "\n" + "─"*64 + "\n"
-    terminal  = title_t  + sep.join([s_movers_t, s_oversold_t, s_breaks_t,
-                                      s_new_t, s_ml_t, s_sum_t])
-    markdown  = title_m  + "\n---\n".join([s_movers_m, s_oversold_m, s_breaks_m,
-                                           s_new_m, s_ml_m, s_sum_m])
+    terminal  = title_t  + sep.join([s_movers_t, s_oversold_t, s_overbought_t,
+                                      s_breaks_t, s_new_t, s_hc_t, s_sum_t])
+    markdown  = title_m  + "\n---\n".join([s_movers_m, s_oversold_m, s_overbought_m,
+                                           s_breaks_m, s_new_m, s_hc_m, s_sum_m])
     return terminal, markdown
 
 
