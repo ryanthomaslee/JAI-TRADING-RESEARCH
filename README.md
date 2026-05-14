@@ -1,8 +1,19 @@
-# market-intel
+# JAI-TRADING-RESEARCH
 
 AI-powered market intelligence dashboard for stocks and crypto.
 Produces a daily morning report to help decide what to buy, watch, or avoid on IBKR and Binance.
 **No automated trading. No order placement. Just a report you read with your coffee.**
+
+---
+
+## ⚠️ Disclaimer
+
+This is a research and educational project. It is not financial advice.
+It does not predict future prices. Backtested results do not guarantee
+future performance. This system does not place orders or connect to any
+brokerage — it produces reports and signals that the user evaluates manually.
+The author is not responsible for any losses incurred from using this code
+or acting on its output. Trade at your own risk.
 
 ---
 
@@ -142,7 +153,7 @@ install_name_tool -change @rpath/libomp.dylib <PATH>/libomp.dylib \
 ## Project Structure
 
 ```
-market-intel/
+JAI-TRADING-RESEARCH/
 ├── config/
 │   ├── settings.py          # All paths, thresholds, rate limits
 │   └── universe.yaml        # Stock + crypto symbol list
@@ -183,6 +194,7 @@ market-intel/
 | 4 | Walk-forward backtest engine, realistic costs, t+1 entry, metrics |
 | 4.5 | Universe filtering, cooldown logic, buy-and-hold benchmark |
 | 5 | Daily dashboard: 152-symbol screener + ML scoring + morning report |
+| 6 | Streamlit web dashboard: localhost:8501 interactive UI with Plotly charts, tabs for screeners + ML signals, mobile-friendly layout |
 
 **Backtest verdict (Phase 4.5):** ML system Sharpe=0.82 at best operating point
 (threshold=0.70, cooldown=5d, WINNERS universe). Buy-and-hold of same 3 symbols

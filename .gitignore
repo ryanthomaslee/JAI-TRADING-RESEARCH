@@ -10,11 +10,13 @@ wheels/
 # Virtual environments (uv manages .venv)
 .venv/
 
-# Data files — DO NOT commit raw/processed market data.
+# Data files — DO NOT commit raw/processed market data or generated outputs.
 # WHY? Data is large, binary, and changes daily. Git is for code, not data.
 data/raw/
 data/processed/
 data/features/
+data/models/
+data/reports/
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
