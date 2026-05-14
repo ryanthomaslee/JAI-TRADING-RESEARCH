@@ -152,6 +152,27 @@ class DataSource(ABC):
         raw = self._fetch_raw(symbol, start, end)
         df  = validate_ohlcv(raw, symbol)
 
+        # ── Merge with existing cache ─────────────────────────────────────────
+        # WHY merge instead of replace?
+        #   --recent-only fetches a short window for speed but must not destroy
+        #   the full historical cache built by the initial setup pull.  We merge
+        #   new rows into the existing file so history is always preserved and
+        #   today's prices are always fresh.
+        if cache.exists():
+            try:
+                old = pd.read_parquet(cache, engine=PARQUET_ENGINE)
+                if old.index.tz is None:
+                    old.index = old.index.tz_localize("UTC")
+                df = (
+                    pd.concat([old, df])
+                    .sort_index()
+                    # Keep the newer fetch when the same timestamp appears in both
+                    .groupby(level=0).last()
+                    [OHLCV_COLUMNS]
+                )
+            except Exception as exc:
+                log.warning("[%s] Could not merge with existing cache (%s) — replacing", symbol, exc)
+
         # ── Write to Parquet ──────────────────────────────────────────────────
         table = pa.Table.from_pandas(df, preserve_index=True)
         pq.write_table(
