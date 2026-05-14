@@ -38,3 +38,6 @@ htmlcov/
 .env
 .env.*
 secrets.yaml
+
+# Streamlit config (local preferences, not shared)
+.streamlit/
