@@ -175,10 +175,26 @@ def _build_price_chart(symbol: str, prices_dict: dict[str, pd.DataFrame]) -> go.
 #  Signal card helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Bases available as THB pairs on Binance Thailand (binance.th).
+# POL is the on-chain rename of MATIC — both accepted.
+_THB_BASES = frozenset({
+    "BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE",
+    "USDT", "USDC", "MATIC", "POL", "LINK", "AVAX",
+})
+
+
+def _binance_trade_url(symbol: str) -> str:
+    """symbol is ccxt format 'BTC/USDT'. Returns binance.th THB link if
+    supported, otherwise falls back to binance.com USDT link."""
+    base = symbol.split("/")[0]
+    if base in _THB_BASES:
+        return f"https://www.binance.th/en/trade/{base}_THB"
+    return f"https://www.binance.com/en/trade/{base}_USDT"
+
+
 def _trade_link(symbol: str, asset_class: str) -> str:
     if asset_class == "crypto":
-        url_sym = symbol.replace("/", "_")
-        return f"[Trade on Binance](https://www.binance.com/en/trade/{url_sym}?type=spot)"
+        return _binance_trade_url(symbol)
     return f"[View on TradingView](https://www.tradingview.com/symbols/NASDAQ-{symbol}/)"
 
 
