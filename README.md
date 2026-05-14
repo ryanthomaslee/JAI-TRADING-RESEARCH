@@ -4,6 +4,10 @@ AI-powered market intelligence dashboard for stocks and crypto.
 Produces a daily morning report to help decide what to buy, watch, or avoid on IBKR and Binance.
 **No automated trading. No order placement. Just a report you read with your coffee.**
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c58b7657-2827-4df2-b722-c09270706e07" alt="JAI Trading Research dashboard" width="500">
+</p>
+
 ---
 
 ## ⚠️ Disclaimer
