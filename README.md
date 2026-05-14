@@ -6,6 +6,38 @@ Produces a daily morning report to help decide what to buy, watch, or avoid on I
 
 ---
 
+## Web Dashboard
+
+Launch the interactive web dashboard:
+
+```bash
+uv run streamlit run app.py
+```
+
+Opens at `http://localhost:8501`. Shows the same data as the terminal report
+with a browser UI — tabs for each screener section, expandable signal cards,
+and a price chart with SMA overlays and volume.
+
+| Tab | Contents |
+|-----|----------|
+| 📈 Movers | Top gainers and losers side by side |
+| 🔴 Oversold | RSI < 30 symbols with volume filter |
+| 🟠 Overbought | RSI > 70 symbols — potential exit signals |
+| 🟢 Breakouts | Volume ≥ 3× average |
+| 🎯 High-Conviction | Expandable cards with score + reasoning |
+| 📊 All Symbols | Searchable table of all 156 composite scores |
+| 📉 Chart | 90-day price line + SMA 20/50 + volume subplot |
+
+**Buttons:**
+- **🔄 Refresh View** — rerender from cache (instant)
+- **📥 Pull Fresh Data** — re-pull from APIs then rerender (~30s)
+
+Data is cached for 5 minutes (`@st.cache_data(ttl=300)`). The web app calls
+the same `src/dashboard/data.build_dashboard_data()` function as the terminal
+report, so both interfaces always show identical numbers.
+
+---
+
 ## Daily Usage
 
 ```bash
