@@ -49,6 +49,8 @@ log = logging.getLogger(__name__)
 class DashboardData:
     date: str                          # ISO date string "YYYY-MM-DD"
     universe_size: int
+    stock_symbols: set[str]            # set of stock tickers for UI filtering
+    crypto_symbols: set[str]           # set of crypto tickers for UI filtering
     movers_up: pd.DataFrame
     movers_down: pd.DataFrame
     oversold: pd.DataFrame
@@ -59,6 +61,15 @@ class DashboardData:
     high_conviction: list[dict]        # scores where score >= threshold
     all_scores: pd.DataFrame           # flat DataFrame of scores (no reasoning column)
     prices_dict: dict[str, pd.DataFrame]
+
+
+def _add_asset_class(df: pd.DataFrame, sym_to_class: dict[str, str]) -> pd.DataFrame:
+    """Stamp an asset_class column onto a screener DataFrame."""
+    if df.empty:
+        return df
+    df = df.copy()
+    df["asset_class"] = df["symbol"].map(sym_to_class).fillna("stock")
+    return df
 
 
 def _load_universe() -> tuple[list[str], list[str]]:
@@ -140,6 +151,8 @@ def build_dashboard_data(
         _pull_fresh(full=full_refresh)
 
     stock_syms, crypto_syms = _load_universe()
+    sym_to_class: dict[str, str] = {s: "stock" for s in stock_syms}
+    sym_to_class.update({s: "crypto" for s in crypto_syms})
     prices = _load_prices(stock_syms, crypto_syms)
 
     if symbols:
@@ -159,30 +172,33 @@ def build_dashboard_data(
     log.info("Loaded %d production ML models", len(models))
 
     # Run screeners
-    movers_up_df   = big_movers_up(prices,
+    movers_up_df   = _add_asset_class(big_movers_up(prices,
                                     lookback_days=SCREENER_MOVER_LOOKBACK,
-                                    min_pct=SCREENER_MOVER_PCT)
-    movers_down_df = big_movers_down(prices,
+                                    min_pct=SCREENER_MOVER_PCT), sym_to_class)
+    movers_down_df = _add_asset_class(big_movers_down(prices,
                                       lookback_days=SCREENER_MOVER_LOOKBACK,
-                                      min_pct=SCREENER_MOVER_PCT)
-    oversold_df    = oversold(prices,
+                                      min_pct=SCREENER_MOVER_PCT), sym_to_class)
+    oversold_df    = _add_asset_class(oversold(prices,
                                rsi_threshold=SCREENER_RSI_OVERSOLD,
-                               min_volume_ratio=SCREENER_MIN_VOLUME_RATIO)
-    overbought_df  = overbought(prices, rsi_threshold=SCREENER_RSI_OVERBOUGHT)
-    breakouts_df   = volume_breakouts(prices, multiplier=SCREENER_VOL_BREAKOUT_MULT)
-    new_df         = new_listings(prices, max_history_days=SCREENER_NEW_LISTING_DAYS)
+                               min_volume_ratio=SCREENER_MIN_VOLUME_RATIO), sym_to_class)
+    overbought_df  = _add_asset_class(overbought(prices, rsi_threshold=SCREENER_RSI_OVERBOUGHT), sym_to_class)
+    breakouts_df   = _add_asset_class(volume_breakouts(prices, multiplier=SCREENER_VOL_BREAKOUT_MULT), sym_to_class)
+    new_df         = _add_asset_class(new_listings(prices, max_history_days=SCREENER_NEW_LISTING_DAYS), sym_to_class)
 
     log.info("Screeners: %d up, %d down, %d oversold, %d overbought, %d breakouts, %d new",
              len(movers_up_df), len(movers_down_df), len(oversold_df),
              len(overbought_df), len(breakouts_df), len(new_df))
 
-    # Score all symbols
+    # Score all symbols and stamp asset class
     scores_list = score_all(prices, models)
+    for s in scores_list:
+        s["asset_class"] = sym_to_class.get(s["symbol"], "stock")
     high_conviction = [s for s in scores_list if s.get("score", 0) >= ml_threshold]
 
     all_scores_df = pd.DataFrame([
         {
             "symbol":       s["symbol"],
+            "asset_class":  s.get("asset_class", "stock"),
             "score":        s["score"],
             "rsi":          s.get("rsi"),
             "volume_ratio": s.get("volume_ratio"),
@@ -195,6 +211,8 @@ def build_dashboard_data(
     return DashboardData(
         date            = date.today().isoformat(),
         universe_size   = len(prices),
+        stock_symbols   = set(stock_syms) & set(prices),
+        crypto_symbols  = set(crypto_syms) & set(prices),
         movers_up       = movers_up_df,
         movers_down     = movers_down_df,
         oversold        = oversold_df,
